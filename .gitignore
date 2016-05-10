@@ -45,3 +45,4 @@ Temporary Items
 # Data storage files that do not belong in a repo
 2006_r_extra.csv
 2006_r_extra_formatted.csv
+data/residential.db

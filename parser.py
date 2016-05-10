@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 def residential_schema():
     '''Returns two lists, one for residential data spacing and one
@@ -121,7 +122,7 @@ def common_schema():
     return g_width, g_columns
 
 
-def parse(directory):
+def parse_residential():
     ''' this function parses the fixed width data from the Anchorage
     Municipality Property Tax file into a SQLite database
 
@@ -135,30 +136,42 @@ def parse(directory):
 
     from sqlalchemy import create_engine
 
+    r_engine = create_engine('sqlite:///data/residential.db')
+
     g_widths, g_columns = common_schema()
-
-    year = '2006'
-    fname = 'data/'+year+'.ascii.bz2'
-    df = pd.read_fwf(fname, colspecs='infer', compression='infer',
-            header=None, widths=g_widths)
-
-    df.columns = g_columns
-    df.head(5)
-
-    df.head(5).to_csv('test.csv')
-
-    df_r = df[df.LCI == 'R']
-    df_c = df[df.LCI == 'C']
-
     r_width, r_columns = residential_schema()
-    df_r.to_csv(year+'_r.csv')
 
-    df_r.VariableSchema.to_csv(year+'_r_extra.csv', index=False, index_label=False, header=False)
-    df_r_extra = pd.read_fwf(year+'_r_extra.csv', header=None, widths=r_width)
-    df_r_extra.columns = r_columns
-    df_r_extra.to_csv(year+'_r_extra_formatted.csv')
-    df_r_extra
-    pieces = [df_r, df_r_extra]
-    len(pd.concat(pieces, axis=1).columns)
-    len(df_r.columns)
-    len(df_r_extra.columns)
+    years = [2006, 2009, 2012, 2015, 2016]
+
+    for year in years:
+        fname = 'data/'+str(year)+'.ascii.bz2'
+        df = pd.read_fwf(fname, colspecs='infer', compression='infer', header=None, widths=g_widths, encoding = "ISO-8859-1")
+
+        df.columns = g_columns
+        df_r = df[df.LCI == 'R']
+        # free up some memory
+        del df
+
+        # reset the index after dropping the commercial values
+        df_r = df_r.reset_index(drop=True).copy()
+
+        # export the residential-specific string
+        df_r.VariableSchema.to_csv(str(year)+'_r_extra.csv', index=False, header=False, encoding = "ISO-8859-1")
+        df_r.drop('VariableSchema', axis=1, inplace=True)
+
+        # read in the residential specific information
+        df_r2 = pd.read_fwf(str(year)+'_r_extra.csv', header=None, widths=r_width, encoding = "ISO-8859-1")
+        df_r2.columns = r_columns
+
+        # delete the interstitial file
+        fname = str(year)+'_r_extra.csv'
+        os.remove(fname)
+
+        # combine the generic data with the residential data
+        df_rf = pd.merge(df_r, df_r2, how='inner', left_index=True, right_index=True)
+
+        # df_rf.to_csv('data/'+year+'_r_final.csv', index=False)
+        df_rf.to_sql(str(year), con=r_engine, if_exists='replace', index=False)
+
+if __name__ == '__main__':
+    parse_residential()
