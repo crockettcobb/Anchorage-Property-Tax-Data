@@ -48,3 +48,6 @@ Temporary Items
 data/residential.db
 data/pricey.csv
 jupyter/.ipynb_checkpoints/Untitled-checkpoint.ipynb
+data/processed/SQLite/residential.db
+data/processed/SQLite/commercial.db
+data/processed/csv/2006_c_final.csv
